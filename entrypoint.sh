@@ -24,6 +24,7 @@ echo "Database is up."
 
 ######THIS SECTION IS DISABLED DURING DEVELOPMENT######
 # Run migrations automatically on container start
+python manage.py makemigrations users --noinput
 python manage.py migrate --noinput
 
 # Collect static files (safe to run every time; skip in dev if you want faster startup)
