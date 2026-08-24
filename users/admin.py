@@ -20,6 +20,7 @@ class CustomUserAdmin(UserAdmin):
         "is_tenant",
         "is_staff",
         "is_active",
+        "is_verified",
     )
 
     list_filter = (

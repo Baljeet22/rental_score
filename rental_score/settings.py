@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "users",  # added
     "rest_framework_simplejwt",  # added
     "rest_framework_simplejwt.token_blacklist",  # added
+    "documents",  # added
 ]
 
 AUTH_USER_MODEL = "users.User"  # added
@@ -155,7 +156,7 @@ REST_FRAMEWORK = {
 }
 ############# SIMPLE JWT SETTINGS #########
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
@@ -175,6 +176,22 @@ EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv(
     "DEFAULT_FROM_EMAIL",
     "noreply@rentalscore.com",
+)
+############## MINIO SETTINGS##############
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://172.18.0.3:9000")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "admin")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "admin123")
+MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "documents")
+MINIO_REGION = os.getenv("MINIO_REGION", "us-east-1")
+
+MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+
+MINIO_PRESIGNED_UPLOAD_EXPIRATION = int(
+    os.getenv("MINIO_PRESIGNED_UPLOAD_EXPIRATION", "900")
+)
+
+MINIO_PRESIGNED_DOWNLOAD_EXPIRATION = int(
+    os.getenv("MINIO_PRESIGNED_DOWNLOAD_EXPIRATION", "300")
 )
 
 ###########################################

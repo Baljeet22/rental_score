@@ -27,6 +27,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "is_owner",
             "is_tenant",
             "address",
+            "is_verified",
         )
 
     def validate(self, attrs):
