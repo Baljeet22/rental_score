@@ -127,3 +127,11 @@ class DownloadResponseSerializer(serializers.Serializer):
     filename = serializers.CharField()
 
     expires_in = serializers.IntegerField()
+
+
+class DocumentGroupSerializer(serializers.Serializer):
+    group_ref_id = serializers.IntegerField()
+
+    documents = DocumentResponseSerializer(
+        many=True,
+    )

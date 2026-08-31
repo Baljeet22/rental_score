@@ -1,5 +1,6 @@
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Min, Count
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -13,7 +14,9 @@ from .serializers import (
     DocumentInitializeSerializer,
     DocumentResponseSerializer,
     DownloadResponseSerializer,
+    DocumentGroupSerializer,
 )
+from .pagination import DocumentGroupPagination
 from .services import DocumentService
 from .storage import MinIOStorageError
 
@@ -116,28 +119,112 @@ class DocumentListAPIView(APIView):
         IsAuthenticated,
     ]
 
-    def get(self, request):
-        documents = (
-            Document.objects.filter(
+    def get(
+        self,
+        request,
+    ):
+        visibility_filter = (
+            Q(
+                user=request.user,
+                status=DOCUMENT_STATUS_UPLOADED,
                 deleted_at__isnull=True,
             )
-            .filter(
-                Q(user=request.user)
-                | Q(belongs_to=request.user)
-                | Q(user__is_staff=True)
+            | Q(
+                belongs_to=request.user,
+                status=DOCUMENT_STATUS_UPLOADED,
+                deleted_at__isnull=True,
             )
-            .order_by("-created_at")
-            .distinct()
+            | Q(
+                user__is_staff=True,
+            )
         )
 
-        serializer = DocumentResponseSerializer(
-            documents,
+        # ---------------------------------------------------------
+        # Group documents at the database level
+        # ---------------------------------------------------------
+
+        groups = (
+            Document.objects.filter(
+                visibility_filter,
+            )
+            .values(
+                "group_ref_id",
+            )
+            .annotate(
+                file_count=Count("id"),
+                created_at=Min("created_at"),
+            )
+            .order_by(
+                "-created_at",
+                "-group_ref_id",
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Paginate groups until at least min_files are collected
+        # ---------------------------------------------------------
+
+        paginator = DocumentGroupPagination()
+
+        page = paginator.paginate_queryset(
+            groups,
+            request,
+            view=self,
+        )
+
+        group_ids = [group["group_ref_id"] for group in page]
+
+        # ---------------------------------------------------------
+        # Fetch all documents belonging to selected groups
+        # ---------------------------------------------------------
+
+        documents = (
+            Document.objects.filter(
+                group_ref_id__in=group_ids,
+            )
+            .filter(
+                visibility_filter,
+            )
+            .select_related(
+                "group_ref",
+                "user",
+                "belongs_to",
+            )
+            .order_by(
+                "group_ref_id",
+                "created_at",
+                "id",
+            )
+        )
+
+        # ---------------------------------------------------------
+        # Organize documents by group
+        # ---------------------------------------------------------
+
+        documents_by_group = {group_id: [] for group_id in group_ids}
+
+        for document in documents:
+            documents_by_group[document.group_ref_id].append(document)
+
+        # ---------------------------------------------------------
+        # Build grouped response
+        # ---------------------------------------------------------
+
+        results = [
+            {
+                "group_ref_id": group["group_ref_id"],
+                "documents": documents_by_group[group["group_ref_id"]],
+            }
+            for group in page
+        ]
+
+        serializer = DocumentGroupSerializer(
+            results,
             many=True,
         )
 
-        return Response(
+        return paginator.get_paginated_response(
             serializer.data,
-            status=status.HTTP_200_OK,
         )
 
 
@@ -154,6 +241,7 @@ class DocumentDetailAPIView(APIView):
         document = Document.objects.filter(
             id=pk,
             deleted_at__isnull=True,
+            status="uploaded",
         ).first()
 
         if document is None:
@@ -234,6 +322,62 @@ class DocumentDetailAPIView(APIView):
 
         return Response(
             status=status.HTTP_204_NO_CONTENT,
+        )
+
+
+class DocumentSoftDeleteAPIView(APIView):
+    permission_classes = [
+        IsAuthenticated,
+    ]
+
+    def delete(
+        self,
+        request,
+        pk,
+    ):
+        document = Document.objects.filter(
+            id=pk,
+            deleted_at__isnull=True,
+        ).first()
+
+        if document is None:
+            return Response(
+                {
+                    "detail": "Document not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Only the document owner or staff can delete it
+        if document.user_id != request.user.id and not request.user.is_staff:
+            return Response(
+                {
+                    "detail": "You cannot delete this document.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        service = DocumentService()
+
+        try:
+            service.soft_delete(
+                document_id=document.id,
+                user=request.user,
+            )
+
+        except ValueError as exc:
+            return Response(
+                {
+                    "detail": str(exc),
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {
+                "detail": "Document deleted successfully.",
+            },
+            status=status.HTTP_200_OK,
         )
 
 

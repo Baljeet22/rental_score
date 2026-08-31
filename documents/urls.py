@@ -6,6 +6,7 @@ from .views import (
     DocumentFinalizeUploadAPIView,
     DocumentInitializeUploadAPIView,
     DocumentListAPIView,
+    DocumentSoftDeleteAPIView,
 )
 
 urlpatterns = [
@@ -33,5 +34,10 @@ urlpatterns = [
         "<int:pk>/download/",
         DocumentDownloadAPIView.as_view(),
         name="document-download",
+    ),
+    path(
+        "<int:pk>/delete/",
+        DocumentSoftDeleteAPIView.as_view(),
+        name="document-delete",
     ),
 ]

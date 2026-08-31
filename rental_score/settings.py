@@ -179,13 +179,27 @@ DEFAULT_FROM_EMAIL = os.getenv(
 )
 ############## MINIO SETTINGS##############
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://172.18.0.3:9000")
+MINIO_PUBLIC_ENDPOINT = os.getenv("MINIO_PUBLIC_ENDPOINT", "http://127.0.0.1:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "admin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "admin123")
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME", "documents")
 MINIO_REGION = os.getenv("MINIO_REGION", "us-east-1")
 
-MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
+MINIO_SECURE = (
+    os.getenv(
+        "MINIO_SECURE",
+        "false",
+    ).lower()
+    == "true"
+)
 
+MINIO_PUBLIC_SECURE = (
+    os.getenv(
+        "MINIO_PUBLIC_SECURE",
+        "false",
+    ).lower()
+    == "true"
+)
 MINIO_PRESIGNED_UPLOAD_EXPIRATION = int(
     os.getenv("MINIO_PRESIGNED_UPLOAD_EXPIRATION", "900")
 )
